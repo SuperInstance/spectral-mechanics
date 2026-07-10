@@ -160,21 +160,15 @@ pub fn equipartition_check(graph: &SpringGraph) -> Vec<f64> {
     let n_active = modes.iter().filter(|&&m| m > 1e-10).count().max(1);
     let expected = total_ke / n_active as f64;
 
-    // Energy in each mode (approximate: project velocity onto eigenvectors)
-    let eigs = graph.laplacian_eigenvalues();
+    // Energy in each mode (approximate: distribute KE equally among active modes)
     let n = graph.adj.len();
     let mut mode_energies = Vec::new();
 
-    // Simple approximation: distribute KE equally among active modes
     for (i, &freq) in modes.iter().enumerate() {
         if freq < 1e-10 {
             mode_energies.push(0.0);
         } else {
-            // Approximate: each mode gets ~ kT/2
-            let mode_energy = graph.velocities.iter()
-                .map(|v| v * v / 2.0)
-                .sum::<f64>() / n_active as f64;
-            mode_energies.push(mode_energy);
+            mode_energies.push(expected);
         }
         if i >= n - 1 { break; }
     }
