@@ -99,12 +99,34 @@ impl SpringGraph {
         }
     }
 
-    /// Integrate for n steps, return energy drift
+    /// Instantaneous kinetic energy and virial work `x·F`.
+    ///
+    /// These are the two quantities that must be time-averaged for a
+    /// meaningful virial theorem check.
+    pub fn virial_quantities(&self) -> (f64, f64) {
+        let ke = self.kinetic_energy();
+        let forces = self.forces();
+        let xf: f64 = self.positions.iter().zip(forces.iter())
+            .map(|(x, f)| x * f)
+            .sum();
+        (ke, xf)
+    }
+
+    /// Integrate for n steps, return energy drift and time-averaged virial data.
     pub fn integrate(&mut self, dt: f64, steps: usize) -> EnergyReport {
         let initial = self.total_energy();
         let mut max_drift = 0.0_f64;
         let mut max_e = initial;
         let mut min_e = initial;
+
+        let mut sum_ke = 0.0_f64;
+        let mut sum_xf = 0.0_f64;
+        let mut samples = 0usize;
+
+        let (ke0, xf0) = self.virial_quantities();
+        sum_ke += ke0;
+        sum_xf += xf0;
+        samples += 1;
 
         for _ in 0..steps {
             self.verlet_step(dt);
@@ -113,13 +135,23 @@ impl SpringGraph {
             if drift > max_drift { max_drift = drift; }
             if e > max_e { max_e = e; }
             if e < min_e { min_e = e; }
+
+            let (ke, xf) = self.virial_quantities();
+            sum_ke += ke;
+            sum_xf += xf;
+            samples += 1;
         }
+
+        let avg_ke = sum_ke / samples as f64;
+        let avg_xf = sum_xf / samples as f64;
 
         EnergyReport {
             initial_energy: initial,
             final_energy: self.total_energy(),
             max_drift,
             energy_range: max_e - min_e,
+            avg_kinetic_energy: avg_ke,
+            avg_virial_work: avg_xf,
         }
     }
 
@@ -151,6 +183,10 @@ pub struct EnergyReport {
     pub final_energy: f64,
     pub max_drift: f64,
     pub energy_range: f64,
+    /// Time-averaged kinetic energy accumulated during `integrate`.
+    pub avg_kinetic_energy: f64,
+    /// Time-averaged virial work `⟨x·F⟩` accumulated during `integrate`.
+    pub avg_virial_work: f64,
 }
 
 /// Equipartition: in thermal equilibrium, each mode has kT/2 energy
@@ -183,15 +219,15 @@ pub fn spectral_temperature(graph: &SpringGraph) -> f64 {
     2.0 * ke / n_active as f64
 }
 
-/// Virial theorem check: 2<T> = <x·F> for a system in equilibrium
-pub fn virial_ratio(graph: &SpringGraph) -> f64 {
-    let ke = graph.kinetic_energy();
-    let forces = graph.forces();
-    let vf: f64 = graph.positions.iter().zip(forces.iter())
-        .map(|(x, f)| x * f)
-        .sum();
-    if ke.abs() < 1e-15 { return 0.0; }
-    -vf / (2.0 * ke) // Should be ~1.0 at equilibrium
+/// Time-averaged virial theorem check: 2⟨T⟩ = ⟨x·F⟩ for a bound system.
+///
+/// The virial theorem is a statement about long-time averages, not a
+/// single snapshot. This function uses the averages accumulated by
+/// `SpringGraph::integrate`. For a system averaged over many oscillation
+/// periods the result should be close to 1.0.
+pub fn virial_ratio(report: &EnergyReport) -> f64 {
+    if report.avg_kinetic_energy.abs() < 1e-15 { return 0.0; }
+    -report.avg_virial_work / (2.0 * report.avg_kinetic_energy)
 }
 
 fn jacobi(a: &mut Vec<Vec<f64>>) -> Vec<f64> {
@@ -297,11 +333,29 @@ mod tests {
         let mut g = SpringGraph::new(vec![vec![0.0, 1.0], vec![1.0, 0.0]]);
         g.positions = vec![0.1, -0.1];
         g.velocities = vec![0.0, 0.0];
-        // Near equilibrium, virial ratio should be ~1
-        let ratio = virial_ratio(&g);
-        // For small displacement, 2<T> ≈ 0, <x·F> ≈ small, ratio is unstable
-        // Just check it computes
-        assert!(ratio.is_finite(), "Virial ratio should be finite: {}", ratio);
+        // Time-averaged virial ratio should trend to ~1 near equilibrium
+        let report = g.integrate(0.01, 2000);
+        let ratio = virial_ratio(&report);
+        assert!((ratio - 1.0).abs() < 0.1,
+                "Time-averaged virial ratio should be ~1 near equilibrium: {}", ratio);
+    }
+
+    #[test]
+    fn virial_time_average_over_one_period() {
+        // Two equal masses connected by a spring: ω = √2, period = 2π/√2.
+        let mut g = SpringGraph::new(vec![vec![0.0, 1.0], vec![1.0, 0.0]]);
+        g.positions = vec![1.0, -1.0];
+        g.velocities = vec![0.0, 0.0];
+
+        let omega = 2.0_f64.sqrt();
+        let period = 2.0 * std::f64::consts::PI / omega;
+        let dt = 0.001;
+        let steps = (period / dt).round() as usize;
+
+        let report = g.integrate(dt, steps);
+        let ratio = virial_ratio(&report);
+        assert!((ratio - 1.0).abs() < 0.02,
+                "Virial ratio averaged over one period should be ~1: {}", ratio);
     }
 
     #[test]

@@ -48,7 +48,7 @@ let cr = g.cr();
 
 // Thermal properties
 let temp = spectral_temperature(&g);
-let virial = virial_ratio(&g); // ~1.0 at equilibrium
+let virial = virial_ratio(&report); // ~1.0 when time-averaged
 ```
 
 ## API Reference
@@ -73,7 +73,7 @@ let virial = virial_ratio(&g); // ~1.0 at equilibrium
 | Function | Description |
 |----------|-------------|
 | `spectral_temperature(&g)` | T = 2⟨KE⟩ / n_active_modes |
-| `virial_ratio(&g)` | 2⟨T⟩/⟨x·F⟩, should be ~1.0 |
+| `virial_ratio(&report)` | 2⟨T⟩/⟨x·F⟩ from time-averaged trajectory, should be ~1.0 |
 | `equipartition_check(&g)` | Energy per mode |
 
 ## How It Fits
