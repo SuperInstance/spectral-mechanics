@@ -2,13 +2,13 @@
 
 **Graphs as mechanical systems — nodes are masses, edges are springs, eigenvalues are normal modes.**
 
-Pure Rust, zero dependencies. A library that treats graph spectral theory as Hamiltonian mechanics: the Laplacian IS the potential energy operator, and symplectic integration preserves the total energy.
+Pure Rust implementation with zero external dependencies. This library models graph spectral theory as a Hamiltonian mechanical system: the Laplacian acts as the potential energy operator, and symplectic integration (Störmer‑Verlet) conserves total energy.
 
 ## What This Gives You
 
 - **SpringGraph** — a graph where nodes have mass and edges have spring constants
 - **Energy bookkeeping** — potential, kinetic, and total energy with conservation tracking
-- **Störmer-Verlet integration** — symplectic integrator that conserves energy over millions of steps
+- **Störmer‑Verlet integration** — symplectic integrator that conserves energy over millions of steps
 - **Normal mode analysis** — eigenvalue frequencies of the coupled spring system
 - **Thermal analysis** — spectral temperature, equipartition, virial theorem
 - **Conservation ratio** — CR = λ₂/λ_max of the underlying graph
@@ -21,7 +21,7 @@ The graph Laplacian `L = D - A` is the potential energy operator for a spring ne
 V = ½ x^T L x
 ```
 
-This is not an analogy. It's a literal spring-mass system. The eigenvalues of L are the squares of the natural frequencies: `ωᵢ = √λᵢ`. The zero eigenvalue corresponds to translation (the whole graph moves as a rigid body).
+This is equivalent to a spring‑mass system where the graph Laplacian acts as the potential energy operator. The eigenvalues of L are the squares of the natural frequencies: `ωᵢ = √λᵢ`. The zero eigenvalue corresponds to translation (the whole graph moves as a rigid body).
 
 ## Quick Start
 
@@ -48,7 +48,7 @@ let cr = g.cr();
 
 // Thermal properties
 let temp = spectral_temperature(&g);
-let virial = virial_ratio(&g); // ~1.0 at equilibrium
+let virial = virial_ratio(&report); // ~1.0 when time-averaged
 ```
 
 ## API Reference
@@ -73,16 +73,16 @@ let virial = virial_ratio(&g); // ~1.0 at equilibrium
 | Function | Description |
 |----------|-------------|
 | `spectral_temperature(&g)` | T = 2⟨KE⟩ / n_active_modes |
-| `virial_ratio(&g)` | 2⟨T⟩/⟨x·F⟩, should be ~1.0 |
+| `virial_ratio(&report)` | 2⟨T⟩/⟨x·F⟩ from time-averaged trajectory, should be ~1.0 |
 | `equipartition_check(&g)` | Energy per mode |
 
-## How It Fits
+## Related Projects
 
-Part of the SuperInstance spectral ecosystem:
+These projects are part of the SuperInstance spectral ecosystem :
 
-- **[spectral-graph-core](https://github.com/SuperInstance/spectral-graph-core)** — Eigenvalues, CR, Fiedler vectors
-- **spectral-mechanics** — Graphs as physics (this repo)
-- **[symplectic-spin](https://github.com/SuperInstance/symplectic-spin)** — General symplectic integrators in Rust
+- **[spectral-graph-core](https://github.com/SuperInstance/spectral-graph-core)** — eigenvalues, conservation ratio, Fiedler vectors
+- **spectral-mechanics** — graphs as physics (this repo)
+- **[symplectic-spin](https://github.com/SuperInstance/symplectic-spin)** — general symplectic integrators in Rust
 - **[symplectic-physics](https://github.com/SuperInstance/symplectic-physics)** — Fortran 2008 symplectic integrators
 
 ## Testing
